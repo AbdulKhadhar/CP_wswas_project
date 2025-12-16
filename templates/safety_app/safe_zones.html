@@ -1,0 +1,180 @@
+<!-- templates/safety_app/safe_zones.html -->
+{% extends 'base.html' %}
+
+{% block title %}Safe Zones - WSWAS{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="text-white">
+            <i class="fas fa-map-marker-alt"></i> Safe Zones
+        </h1>
+        <p class="text-white-50">Define areas where you feel safe (home, office, etc.)</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Add Safe Zone Form -->
+    <div class="col-md-5 mb-4">
+        <div class="card card-custom">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-plus-circle"></i> Add New Safe Zone
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'safe_zones' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-tag"></i> Zone Name *
+                        </label>
+                        {{ form.name }}
+                        <small class="text-muted">e.g., Home, Office, School</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-map-pin"></i> Latitude *
+                        </label>
+                        {{ form.latitude }}
+                        <small class="text-muted">Decimal degrees (-90 to 90)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-map-pin"></i> Longitude *
+                        </label>
+                        {{ form.longitude }}
+                        <small class="text-muted">Decimal degrees (-180 to 180)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-circle"></i> Radius (meters) *
+                        </label>
+                        {{ form.radius_meters }}
+                        <small class="text-muted">50 to 5000 meters</small>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            Active Zone
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100 mb-3">
+                        <i class="fas fa-plus-circle"></i> Add Safe Zone
+                    </button>
+
+                    <button type="button" class="btn btn-outline-primary w-100" onclick="getCurrentLocation()">
+                        <i class="fas fa-crosshairs"></i> Use My Current Location
+                    </button>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle"></i>
+                    <small>
+                        <strong>How it works:</strong> When you're inside a safe zone, 
+                        the system can automatically detect it. Useful for knowing when 
+                        you've left safe areas.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Safe Zones List -->
+    <div class="col-md-7">
+        <div class="card card-custom">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt"></i> My Safe Zones
+                </h5>
+                <span class="badge bg-success rounded-pill">{{ zones.count }} Zone{{ zones.count|pluralize }}</span>
+            </div>
+            <div class="card-body">
+                {% if zones %}
+                    <div class="row">
+                        {% for zone in zones %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 {% if not zone.is_active %}bg-light{% endif %}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h5 class="card-title mb-0">
+                                            <i class="fas fa-home text-success"></i> {{ zone.name }}
+                                        </h5>
+                                        {% if not zone.is_active %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <p class="small text-muted mb-2">
+                                        <i class="fas fa-map-pin"></i> 
+                                        {{ zone.latitude }}, {{ zone.longitude }}
+                                    </p>
+                                    
+                                    <p class="mb-2">
+                                        <i class="fas fa-circle text-primary"></i> 
+                                        Radius: <strong>{{ zone.radius_meters }}m</strong>
+                                    </p>
+                                    
+                                    <div class="d-flex gap-2">
+                                        <a href="https://www.google.com/maps?q={{ zone.latitude }},{{ zone.longitude }}" 
+                                           target="_blank" class="btn btn-sm btn-outline-primary flex-grow-1">
+                                            <i class="fas fa-map"></i> View Map
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteZone('{{ zone.id }}', '{{ zone.name }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center p-5">
+                        <i class="fas fa-map-marked-alt text-muted" style="font-size: 80px;"></i>
+                        <h4 class="mt-3 text-muted">No Safe Zones Yet</h4>
+                        <p class="text-muted">
+                            Add your first safe zone using the form on the left.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCurrentLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                document.getElementById('id_latitude').value = position.coords.latitude.toFixed(6);
+                document.getElementById('id_longitude').value = position.coords.longitude.toFixed(6);
+                alert('Location captured! Coordinates filled in the form.');
+            },
+            function(error) {
+                alert('Unable to get your location. Please enter manually.');
+            }
+        );
+    } else {
+        alert('Geolocation is not supported by your browser.');
+    }
+}
+
+function deleteZone(zoneId, zoneName) {
+    if (confirm(`Are you sure you want to delete "${zoneName}" safe zone?`)) {
+        // In a real implementation, this would make an AJAX call to delete
+        alert('Delete functionality to be implemented');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,133 @@
+<!-- ============================================ -->
+<!-- templates/safety_app/monitor_alert.html -->
+<!-- ============================================ -->
+{% extends 'base.html' %}
+
+{% block title %}Monitor Alert - WSWAS{% endblock %}
+
+{% block extra_css %}
+<style>
+    #map {
+        height: 500px;
+        border-radius: 15px;
+    }
+    .location-marker {
+        animation: pulse 2s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="text-white">
+            <i class="fas fa-satellite-dish status-active"></i> Real-Time Monitoring
+        </h1>
+        <p class="text-white-50">Alert ID: {{ alert.alert_id }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mb-4">
+        <div class="card card-custom">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-map"></i> Live Location Map</h5>
+            </div>
+            <div class="card-body">
+                <div id="map" class="bg-light d-flex align-items-center justify-content-center">
+                    <div class="text-center">
+                        <i class="fas fa-map-marked-alt fa-5x text-muted mb-3"></i>
+                        <h4>Map Integration</h4>
+                        <p class="text-muted">Integrate with Google Maps or Leaflet.js for production</p>
+                        <div class="mt-3">
+                            <strong>Last Known Location:</strong><br>
+                            <span id="currentLocation">Waiting for update...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card card-custom mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Alert Status</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Status:</strong> <span class="badge bg-danger">{{ alert.status }}</span></p>
+                <p><strong>User:</strong> {{ alert.user.get_full_name }}</p>
+                <p><strong>Triggered:</strong> {{ alert.triggered_at|date:"M d, H:i" }}</p>
+                <hr>
+                <div id="connectionStatus">
+                    <i class="fas fa-circle text-success"></i> Connected
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-custom">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-history"></i> Location Updates</h5>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <div id="locationLog">
+                    <p class="text-muted">Waiting for location updates...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let monitorSocket;
+const alertId = "{{ alert.alert_id }}";
+
+function initMonitorSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    monitorSocket = new WebSocket(
+        protocol + '//' + window.location.host + '/ws/monitor/' + alertId + '/'
+    );
+
+    monitorSocket.onopen = function(e) {
+        console.log('Monitor WebSocket connected');
+        document.getElementById('connectionStatus').innerHTML = 
+            '<i class="fas fa-circle text-success"></i> Connected';
+    };
+
+    monitorSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log('Monitor update:', data);
+
+        if (data.type === 'location_update') {
+            updateLocation(data.location);
+        }
+    };
+
+    monitorSocket.onclose = function(e) {
+        console.log('Monitor WebSocket disconnected');
+        document.getElementById('connectionStatus').innerHTML = 
+            '<i class="fas fa-circle text-danger"></i> Disconnected';
+        setTimeout(initMonitorSocket, 3000);
+    };
+}
+
+function updateLocation(location) {
+    const currentLoc = document.getElementById('currentLocation');
+    currentLoc.textContent = `${location.latitude}, ${location.longitude}`;
+
+    const log = document.getElementById('locationLog');
+    const entry = document.createElement('div');
+    entry.className = 'mb-2 p-2 bg-light rounded';
+    entry.innerHTML = `
+        <small class="text-muted">${new Date(location.timestamp).toLocaleTimeString()}</small>
+        <p class="mb-0"><i class="fas fa-map-pin text-danger"></i> 
+        ${location.latitude}, ${location.longitude}</p>
+    `;
+    log.insertBefore(entry, log.firstChild);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initMonitorSocket();
+});
+</script>
+{% endblock %}

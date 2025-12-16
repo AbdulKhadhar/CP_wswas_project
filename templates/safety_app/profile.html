@@ -1,0 +1,76 @@
+<!-- templates/safety_app/profile.html -->
+{% extends 'base.html' %}
+
+{% block title %}Profile Settings - WSWAS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card card-custom">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-cog"></i> Profile Settings
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <h5 class="mb-3"><i class="fas fa-user"></i> Personal Information</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name *</label>
+                            {{ form.first_name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name *</label>
+                            {{ form.last_name }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Email Address *</label>
+                        {{ form.email }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number *</label>
+                        {{ form.phone_number }}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3"><i class="fas fa-shield-alt"></i> Safety Settings</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label">Emergency Keyword (Optional)</label>
+                        {{ form.emergency_keyword }}
+                        <small class="text-muted">A keyword to trigger alerts via SMS</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Safe Word *</label>
+                        {{ form.safe_word }}
+                        <small class="text-muted">Secret word to cancel emergency alerts</small>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Important:</strong> Keep your safe word confidential and memorable.
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

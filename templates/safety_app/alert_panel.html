@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+
+{% block title %}Alert Panel - WSWAS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-panel-container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .panic-button-container {
+        text-align: center;
+        padding: 40px 0;
+    }
+    
+    .panic-button {
+        width: 250px;
+        height: 250px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+        border: 10px solid #fff;
+        box-shadow: 0 20px 60px rgba(244, 67, 54, 0.5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .panic-button:hover:not(.disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 25px 70px rgba(244, 67, 54, 0.7);
+    }
+    
+    .panic-button:active:not(.disabled) {
+        transform: scale(0.95);
+    }
+    
+    .panic-button.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .panic-button i {
+        font-size: 80px;
+        margin-bottom: 10px;
+    }
+    
+    .panic-button-text {
+        font-size: 24px;
+    }
+    
+    .countdown-timer {
+        font-size: 48px;
+        font-weight: bold;
+        color: #f44336;
+        text-align: center;
+        margin: 20px 0;
+    }
+    
+    .cancel-button {
+        background: #4caf50;
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 25px;
+        font-size: 18px;
+        margin: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .cancel-button:hover {
+        background: #45a049;
+        transform: scale(1.05);
+    }
+    
+    .location-status {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 20px 0;
+    }
+    
+    .keyboard-shortcut {
+        background: #e3f2fd;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alert-panel-container">
+    <h2 class="text-center mb-4">
+        <i class="fas fa-shield-alt text-danger"></i> 
+        Emergency Alert Panel
+    </h2>
+    
+    {% if not has_contacts %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Warning:</strong> You haven't added any emergency contacts yet. 
+        <a href="{% url 'contacts' %}">Add contacts now</a> to receive alerts.
+    </div>
+    {% endif %}
+    
+    {% if active_alert %}
+    <!-- Active Alert View -->
+    <div class="alert alert-danger alert-custom text-center">
+        <h4><i class="fas fa-exclamation-circle"></i> ALERT ACTIVE</h4>
+        <p>Alert triggered at {{ active_alert.triggered_at|date:"H:i:s" }}</p>
+        <p>Status: <strong>{{ active_alert.get_status_display }}</strong></p>
+    </div>
+    
+    <div class="countdown-timer" id="countdown">
+        <span id="timer-display">02:00</span>
+    </div>
+    
+    <div class="text-center">
+        <p class="text-muted">Cancel within 2 minutes to prevent dispatch</p>
+        <button class="cancel-button" onclick="showCancelModal()">
+            <i class="fas fa-times-circle"></i> Cancel Alert
+        </button>
+    </div>
+    
+    {% else %}
+    <!-- Normal Panel View -->
+    <div class="panic-button-container">
+        <div class="panic-button" id="panicButton" onclick="triggerAlert()">
+            <i class="fas fa-hand-paper"></i>
+            <div class="panic-button-text">PANIC BUTTON</div>
+            <small>Click to Alert</small>
+        </div>
+    </div>
+    
+    <div class="location-status text-center" id="locationStatus">
+        <i class="fas fa-map-marker-alt"></i>
+        <span id="locationText">Getting your location...</span>
+    </div>
+    
+    <div class="keyboard-shortcut text-center">
+        <strong>Keyboard Shortcut:</strong> Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>
+    </div>
+    
+    <div class="alert alert-info mt-3">
+        <h6><i class="fas fa-info-circle"></i> How it works:</h6>
+        <ol class="mb-0">
+            <li>Click the panic button or use the keyboard shortcut</li>
+            <li>You have 2 minutes to cancel</li>
+            <li>After 2 minutes, alert is dispatched to all contacts</li>
+            <li>Your location is tracked in real-time</li>
+        </ol>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Cancel Confirmation Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Alert</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to cancel this alert?</p>
+                <div class="mb-3">
+                    <label for="cancelReason" class="form-label">Reason (optional):</label>
+                    <textarea class="form-control" id="cancelReason" rows="3" 
+                              placeholder="False alarm, Safe now, etc."></textarea>
+                </div>
+                {% if profile.safe_word %}
+                <div class="mb-3">
+                    <label for="safeWordInput" class="form-label">Enter Safe Word:</label>
+                    <input type="password" class="form-control" id="safeWordInput" 
+                           placeholder="Your safe word">
+                    <small class="text-muted">Safe word verification required</small>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Keep Alert Active</button>
+                <button type="button" class="btn btn-success" onclick="confirmCancel()">
+                    Yes, Cancel Alert
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentLocation = null;
+    let alertSocket = null;
+    let countdownInterval = null;
+    const activeAlertId = "{{ active_alert.alert_id|default:'' }}";
+    
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    
+    // Initialize WebSocket
+    function initWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        alertSocket = new WebSocket(protocol + '//' + window.location.host + '/ws/alert/');
+        
+        alertSocket.onopen = function(e) {
+            console.log('WebSocket connected');
+        };
+        
+        alertSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            console.log('WebSocket message:', data);
+            
+            if (data.type === 'alert_triggered') {
+                window.location.reload();
+            } else if (data.type === 'alert_cancelled') {
+                window.location.reload();
+            }
+        };
+        
+        alertSocket.onclose = function(e) {
+            console.log('WebSocket disconnected');
+            setTimeout(initWebSocket, 3000);
+        };
+    }
+    
+    // Get user location
+    function getUserLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    currentLocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+                    document.getElementById('locationText').innerHTML = 
+                        '<i class="fas fa-check-circle text-success"></i> Location acquired';
+                },
+                function(error) {
+                    document.getElementById('locationText').innerHTML = 
+                        '<i class="fas fa-exclamation-circle text-warning"></i> Location unavailable';
+                }
+            );
+        }
+    }
+    
+    // Trigger alert
+    function triggerAlert() {
+        if (!currentLocation) {
+            alert('Please wait while we get your location...');
+            return;
+        }
+        
+        const button = document.getElementById('panicButton');
+        button.classList.add('disabled');
+        
+        fetch('/alert/trigger/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+                trigger_method: 'panic_button',
+                user_agent: navigator.userAgent
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+                button.classList.remove('disabled');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to trigger alert');
+            button.classList.remove('disabled');
+        });
+    }
+    
+    // Show cancel modal
+    function showCancelModal() {
+        const modal = new bootstrap.Modal(document.getElementById('cancelModal'));
+        modal.show();
+    }
+    
+    // Confirm cancel
+    function confirmCancel() {
+        const reason = document.getElementById('cancelReason').value;
+        const safeWord = document.getElementById('safeWordInput')?.value;
+        
+        fetch('/alert/cancel/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                alert_id: activeAlertId,
+                reason: reason,
+                safe_word: safeWord
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+    
+    // Countdown timer
+    function startCountdown() {
+        let timeLeft = 120; // 2 minutes
+        
+        countdownInterval = setInterval(function() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer-display').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                // Auto-dispatch
+                dispatchAlert();
+            }
+            
+            timeLeft--;
+        }, 1000);
+    }
+    
+    // Dispatch alert
+    function dispatchAlert() {
+        fetch('/alert/dispatch/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                alert_id: activeAlertId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Alert dispatched to ' + data.contacts_notified + ' contacts');
+                window.location.reload();
+            }
+        });
+    }
+    
+    // Keyboard shortcut
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+            e.preventDefault();
+            if (!activeAlertId) {
+                triggerAlert();
+            }
+        }
+    });
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        getUserLocation();
+        initWebSocket();
+        
+        if (activeAlertId) {
+            startCountdown();
+        }
+    });
+</script>
+{% endblock %}
